@@ -20,6 +20,7 @@ public class CrimeListFragment extends Fragment {
 
     private RecyclerView mCrimeRecyclerView;
     private CrimeAdapter mAdapter;
+    private int mCurrentUpdatePosition = RecyclerView.NO_POSITION;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -50,7 +51,11 @@ public class CrimeListFragment extends Fragment {
             mAdapter = new CrimeAdapter(crimes);
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
-            mAdapter.notifyDataSetChanged();
+            if (mCurrentUpdatePosition != RecyclerView.NO_POSITION) {
+                mAdapter.notifyItemChanged(mCurrentUpdatePosition);
+            } else {
+                mAdapter.notifyDataSetChanged();
+            }
         }
     }
 
@@ -87,6 +92,7 @@ public class CrimeListFragment extends Fragment {
         }
 
         public void onClick(View v) {
+            mCurrentUpdatePosition = getAdapterPosition();
             //Toast.makeText(getActivity(), mCrime.getTitle() + " clicked!", Toast.LENGTH_SHORT).show();
             Intent intent = CrimeActivity.newIntent(getActivity(), mCrime.getId());
             startActivity(intent);
