@@ -51,11 +51,14 @@ public class CrimeListFragment extends Fragment {
             mAdapter = new CrimeAdapter(crimes);
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
+            /* Since we now use a ViewPager, the user can update multiple items from the CrimePagerActivity
             if (mCurrentUpdatePosition != RecyclerView.NO_POSITION) {
                 mAdapter.notifyItemChanged(mCurrentUpdatePosition);
             } else {
                 mAdapter.notifyDataSetChanged();
             }
+            */
+            mAdapter.notifyDataSetChanged();
         }
     }
 
