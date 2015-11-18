@@ -28,7 +28,6 @@ public class CrimeListFragment extends Fragment {
     private View mEmptyView;
 
     private CrimeAdapter mAdapter;
-    private int mCurrentUpdatePosition = RecyclerView.NO_POSITION;
     private boolean mSubtitleVisible;
 
     @Override
@@ -131,13 +130,7 @@ public class CrimeListFragment extends Fragment {
             mAdapter = new CrimeAdapter(crimes);
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
-            /* Since we now use a ViewPager, the user can update multiple items from the CrimePagerActivity
-            if (mCurrentUpdatePosition != RecyclerView.NO_POSITION) {
-                mAdapter.notifyItemChanged(mCurrentUpdatePosition);
-            } else {
-                mAdapter.notifyDataSetChanged();
-            }
-            */
+            mAdapter.setCrimes(crimes);
             mAdapter.notifyDataSetChanged();
         }
 
@@ -172,6 +165,7 @@ public class CrimeListFragment extends Fragment {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     mCrime.setSolved(isChecked);
+                    CrimeLab.get(getActivity()).updateCrime(mCrime);
                 }
             });
         }
@@ -184,7 +178,6 @@ public class CrimeListFragment extends Fragment {
         }
 
         public void onClick(View v) {
-            mCurrentUpdatePosition = getAdapterPosition();
             Intent intent = CrimePagerActivity.newIntent(getActivity(), mCrime.getId());
             startActivity(intent);
         }
@@ -216,6 +209,10 @@ public class CrimeListFragment extends Fragment {
         @Override
         public int getItemCount() {
             return mCrimes.size();
+        }
+
+        public void setCrimes(List<Crime> crimes) {
+            mCrimes = crimes;
         }
     }
 }
