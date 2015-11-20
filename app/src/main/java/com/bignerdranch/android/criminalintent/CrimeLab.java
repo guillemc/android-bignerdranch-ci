@@ -87,6 +87,7 @@ public class CrimeLab {
         cv.put(CrimeTable.Cols.TITLE, crime.getTitle());
         cv.put(CrimeTable.Cols.DATE, crime.getDate().getTime());
         cv.put(CrimeTable.Cols.SOLVED, crime.isSolved() ? 1 : 0);
+        cv.put(CrimeTable.Cols.SUSPECT, crime.getSuspect());
 
         return cv;
     }
