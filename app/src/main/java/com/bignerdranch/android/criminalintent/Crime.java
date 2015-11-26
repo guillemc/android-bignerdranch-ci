@@ -11,6 +11,8 @@ public class Crime {
     private boolean mSolved;
 
     private String mSuspect;
+    private String mSuspectKey;
+    private long mSuspectId;
 
     public Crime() {
         this(UUID.randomUUID());
@@ -57,4 +59,19 @@ public class Crime {
         mSuspect = suspect;
     }
 
+    public String getSuspectKey() {
+        return mSuspectKey;
+    }
+
+    public void setSuspectKey(String suspectKey) {
+        mSuspectKey = suspectKey;
+    }
+
+    public long getSuspectId() {
+        return mSuspectId;
+    }
+
+    public void setSuspectId(long suspectId) {
+        mSuspectId = suspectId;
+    }
 }

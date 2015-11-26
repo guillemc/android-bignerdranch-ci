@@ -14,6 +14,7 @@ import android.support.v4.app.ShareCompat;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -36,6 +37,7 @@ public class CrimeFragment extends Fragment {
     private Button mDeleteButton;
     private Button mReportButton;
     private Button mSuspectButton;
+    private Button mCallButton;
 
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
@@ -159,7 +161,47 @@ public class CrimeFragment extends Fragment {
             mSuspectButton.setText(mCrime.getSuspect());
         }
 
+        mCallButton = (Button) v.findViewById(R.id.call_suspect);
+        if (mCrime.getSuspectKey() != null) {
+            mCallButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    // turns out we don't need the contact lookup uri, but here it is for reference
+                    Uri contactUri = ContactsContract.Contacts.getLookupUri(mCrime.getSuspectId(), mCrime.getSuspectKey());
+                    Log.d("CrimeFragment", contactUri.toString());
 
+                    Uri contentUri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI; // this query requires android.permission.READ_CONTACTS
+                    Log.d("CrimeFragment", contentUri.toString());
+                    String[] queryFields = new String[]{ ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.NUMBER };
+                    String selectClause = ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY + " = ?";
+                    String[] selectParams = { mCrime.getSuspectKey() };
+                    Cursor c = getActivity().getContentResolver().query(contentUri, queryFields, selectClause, selectParams, null);
+
+                    try {
+                        if (c.getCount() == 0) {
+                            return;
+                        }
+                        String phone = null;
+                        while (c.moveToNext()) {
+                            int type = c.getInt(0);
+                            String number = c.getString(1);
+                            if (!number.isEmpty()) {
+                                if (type == ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE || phone == null) {
+                                    phone = number;
+                                }
+                            }
+                        }
+                        Log.d("CrimeFragment", "Phone: " + phone);
+                    } catch (Exception e) {
+                        Log.d("CrimeFragment", "Error: " + e.getMessage());
+                    } finally {
+                        c.close();
+                    }
+                }
+            });
+        } else {
+            mCallButton.setEnabled(false);
+        }
 
         return v;
     }
@@ -193,8 +235,11 @@ public class CrimeFragment extends Fragment {
             updateDate();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
+            Log.d("CrimeFragment", contactUri.toString());
             // Contacts database is wrapped by a ContentProvider, and accessed through a ContentResolver
-            String[] queryFields = new String[] { ContactsContract.Contacts.DISPLAY_NAME };
+            String[] queryFields = new String[] { ContactsContract.Contacts.DISPLAY_NAME,
+                                                  ContactsContract.Contacts.LOOKUP_KEY,
+                                                  ContactsContract.Contacts._ID };
             Cursor c = getActivity().getContentResolver().query(contactUri, queryFields, null, null, null);
             try {
                 if (c.getCount() == 0) {
@@ -203,6 +248,9 @@ public class CrimeFragment extends Fragment {
                 c.moveToFirst();
                 String suspect = c.getString(0);
                 mCrime.setSuspect(suspect);
+                mCrime.setSuspectKey(c.getString(1));
+                mCrime.setSuspectId(Long.parseLong(c.getString(2)));
+                Log.d("CrimeFragment", mCrime.getSuspect() + ": " + mCrime.getSuspectKey() + "/" + mCrime.getSuspectId());
                 mSuspectButton.setText(suspect);
             } finally {
                 c.close();
