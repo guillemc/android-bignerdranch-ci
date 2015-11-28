@@ -166,10 +166,15 @@ public class CrimeFragment extends Fragment {
             mCallButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    // turns out we don't need the contact lookup uri, but here it is for reference
+                    // option 1: show contact
+                    /*
                     Uri contactUri = ContactsContract.Contacts.getLookupUri(mCrime.getSuspectId(), mCrime.getSuspectKey());
-                    Log.d("CrimeFragment", contactUri.toString());
+                    Intent viewContact = new Intent(Intent.ACTION_VIEW);
+                    viewContact.setData(contactUri);
+                    startActivity(viewContact);
+                    */
 
+                    // option 2: query phone number + dial intent
                     Uri contentUri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI; // this query requires android.permission.READ_CONTACTS
                     Log.d("CrimeFragment", contentUri.toString());
                     String[] queryFields = new String[]{ ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.NUMBER };
@@ -192,6 +197,9 @@ public class CrimeFragment extends Fragment {
                             }
                         }
                         Log.d("CrimeFragment", "Phone: " + phone);
+                        Intent dial = new Intent(Intent.ACTION_DIAL);
+                        dial.setData(Uri.parse("tel:" + phone));
+                        startActivity(dial);
                     } catch (Exception e) {
                         Log.d("CrimeFragment", "Error: " + e.getMessage());
                     } finally {
