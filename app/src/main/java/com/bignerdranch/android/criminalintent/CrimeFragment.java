@@ -10,7 +10,10 @@ import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
+import android.support.v4.app.LoaderManager;
 import android.support.v4.app.ShareCompat;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
@@ -29,7 +32,7 @@ import android.widget.EditText;
 import java.util.Date;
 import java.util.UUID;
 
-public class CrimeFragment extends Fragment {
+public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
     private Crime mCrime;
     private EditText mTitleField;
     private Button mDateButton;
@@ -39,12 +42,16 @@ public class CrimeFragment extends Fragment {
     private Button mSuspectButton;
     private Button mCallButton;
 
+    private static final String TAG = "CrimeFragment";
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
     private static final String DIALOG_REMOVE = "DialogRemove";
 
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
+
+    private static final int LOADER_QUERY_CONTACT = 100;
+    private static final int LOADER_QUERY_PHONE = 101;
 
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
@@ -162,11 +169,10 @@ public class CrimeFragment extends Fragment {
         }
 
         mCallButton = (Button) v.findViewById(R.id.call_suspect);
-        if (mCrime.getSuspectKey() != null) {
-            mCallButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    // option 1: show contact
+        mCallButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // option 1: show contact
                     /*
                     Uri contactUri = ContactsContract.Contacts.getLookupUri(mCrime.getSuspectId(), mCrime.getSuspectKey());
                     Intent viewContact = new Intent(Intent.ACTION_VIEW);
@@ -174,42 +180,11 @@ public class CrimeFragment extends Fragment {
                     startActivity(viewContact);
                     */
 
-                    // option 2: query phone number + dial intent
-                    Uri contentUri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI; // this query requires android.permission.READ_CONTACTS
-                    Log.d("CrimeFragment", contentUri.toString());
-                    String[] queryFields = new String[]{ ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.NUMBER };
-                    String selectClause = ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY + " = ?";
-                    String[] selectParams = { mCrime.getSuspectKey() };
-                    Cursor c = getActivity().getContentResolver().query(contentUri, queryFields, selectClause, selectParams, null);
-
-                    try {
-                        if (c.getCount() == 0) {
-                            return;
-                        }
-                        String phone = null;
-                        while (c.moveToNext()) {
-                            int type = c.getInt(0);
-                            String number = c.getString(1);
-                            if (!number.isEmpty()) {
-                                if (type == ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE || phone == null) {
-                                    phone = number;
-                                }
-                            }
-                        }
-                        Log.d("CrimeFragment", "Phone: " + phone);
-                        Intent dial = new Intent(Intent.ACTION_DIAL);
-                        dial.setData(Uri.parse("tel:" + phone));
-                        startActivity(dial);
-                    } catch (Exception e) {
-                        Log.d("CrimeFragment", "Error: " + e.getMessage());
-                    } finally {
-                        c.close();
-                    }
-                }
-            });
-        } else {
-            mCallButton.setEnabled(false);
-        }
+                // option 2: query phone number + dial intent
+                getLoaderManager().restartLoader(LOADER_QUERY_PHONE, null, CrimeFragment.this);
+            }
+        });
+        mCallButton.setEnabled(mCrime.getSuspectKey() != null);
 
         return v;
     }
@@ -243,26 +218,10 @@ public class CrimeFragment extends Fragment {
             updateDate();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
-            Log.d("CrimeFragment", contactUri.toString());
-            // Contacts database is wrapped by a ContentProvider, and accessed through a ContentResolver
-            String[] queryFields = new String[] { ContactsContract.Contacts.DISPLAY_NAME,
-                                                  ContactsContract.Contacts.LOOKUP_KEY,
-                                                  ContactsContract.Contacts._ID };
-            Cursor c = getActivity().getContentResolver().query(contactUri, queryFields, null, null, null);
-            try {
-                if (c.getCount() == 0) {
-                    return;
-                }
-                c.moveToFirst();
-                String suspect = c.getString(0);
-                mCrime.setSuspect(suspect);
-                mCrime.setSuspectKey(c.getString(1));
-                mCrime.setSuspectId(Long.parseLong(c.getString(2)));
-                Log.d("CrimeFragment", mCrime.getSuspect() + ": " + mCrime.getSuspectKey() + "/" + mCrime.getSuspectId());
-                mSuspectButton.setText(suspect);
-            } finally {
-                c.close();
-            }
+            Log.d(TAG, "REQUEST_CONTACT activity result: " + contactUri.toString());
+            Bundle args = new Bundle();
+            args.putString("contactUri", contactUri.toString());
+            getLoaderManager().restartLoader(LOADER_QUERY_CONTACT, args, this);
         }
     }
 
@@ -300,5 +259,103 @@ public class CrimeFragment extends Fragment {
         String report = getString(R.string.crime_report, mCrime.getTitle(), dateString, solvedString, suspect);
 
         return report;
+    }
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        Uri contentUri;
+        String[] queryFields;
+        String selectClause;
+        String[] selectParams;
+
+        switch (id) {
+            case LOADER_QUERY_PHONE:
+                contentUri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI; // this query requires android.permission.READ_CONTACTS
+                queryFields = new String[]{ ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.NUMBER };
+                selectClause = ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY + " = ?";
+                selectParams = new String[] { mCrime.getSuspectKey() };
+                return new CursorLoader(
+                        getActivity(),
+                        contentUri,
+                        queryFields,
+                        selectClause,
+                        selectParams,
+                        null             // Default sort order
+                );
+            case LOADER_QUERY_CONTACT:
+                contentUri = Uri.parse(args.getString("contactUri"));
+                queryFields = new String[] { ContactsContract.Contacts.DISPLAY_NAME,
+                        ContactsContract.Contacts.LOOKUP_KEY,
+                        ContactsContract.Contacts._ID };
+                return new CursorLoader(
+                        getActivity(),   // Parent activity context
+                        contentUri,
+                        queryFields,
+                        null,
+                        null,
+                        null
+                );
+        }
+        return null;
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
+        if (c == null || c.getCount() < 1) {
+            Log.d(TAG, "Empty cursor for loader " + loader.getId());
+            return;
+        }
+        switch (loader.getId()) {
+            case LOADER_QUERY_CONTACT:
+                setContactData(c);
+                break;
+            case LOADER_QUERY_PHONE:
+                String phone = getPhoneFromCursor(c);
+                if (phone != null) {
+                    Intent dial = new Intent(Intent.ACTION_DIAL);
+                    dial.setData(Uri.parse("tel:" + phone));
+                    startActivity(dial);
+                }
+                break;
+        }
+    }
+
+    private void setContactData(Cursor c) {
+        try {
+            c.moveToFirst();
+            String suspect = c.getString(0);
+            mCrime.setSuspect(suspect);
+            mCrime.setSuspectKey(c.getString(1));
+            mCrime.setSuspectId(Long.parseLong(c.getString(2)));
+            mSuspectButton.setText(suspect);
+            mCallButton.setEnabled(mCrime.getSuspectKey() != null);
+            Log.d(TAG, mCrime.getSuspect() + ": " + mCrime.getSuspectKey() + "/" + mCrime.getSuspectId());
+        } catch (Exception e) {
+            Log.e(TAG, "Unable to update suspect with contact data", e);
+        }
+    }
+
+    private String getPhoneFromCursor(Cursor c) {
+        String phone = null;
+        try {
+            while (c.moveToNext()) {
+                int type = c.getInt(0);
+                String number = c.getString(1);
+                if (!number.isEmpty()) {
+                    if (type == ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE || phone == null) {
+                        phone = number;
+                    }
+                }
+            }
+            Log.d(TAG, "Phone: " + phone);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting phone", e);
+        }
+        return phone;
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        //  In this callback, you should delete all references to the current Cursor in order to prevent memory leaks
     }
 }
