@@ -5,9 +5,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.LoaderManager;
@@ -28,12 +30,16 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 
+import java.io.File;
 import java.util.Date;
 import java.util.UUID;
 
 public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
     private Crime mCrime;
+    private File mPhotoFile;
     private EditText mTitleField;
     private Button mDateButton;
     private CheckBox mSolvedCheckBox;
@@ -41,6 +47,8 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
     private Button mReportButton;
     private Button mSuspectButton;
     private Button mCallButton;
+    private ImageButton mPhotoButton;
+    private ImageView mPhotoView;
 
     private static final String TAG = "CrimeFragment";
     private static final String ARG_CRIME_ID = "crime_id";
@@ -49,6 +57,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
 
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
+    private static final int REQUEST_PHOTO = 2;
 
     private static final int LOADER_QUERY_CONTACT = 100;
     private static final int LOADER_QUERY_PHONE = 101;
@@ -70,6 +79,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
         CrimeLab lab = CrimeLab.get(getActivity());
         mCrime = lab.getCrime(crimeId);
+        mPhotoFile = lab.getPhotoFile(mCrime);
     }
 
     @Override
@@ -149,10 +159,11 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
 
         mSuspectButton = (Button) v.findViewById(R.id.crime_suspect);
         final Intent pickContact = new Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI);
+        PackageManager pm = getActivity().getPackageManager();
         // Check if there is an application in the device that can respond
         // to the pickContact intent. Only activities with the CATEGORY_DEFAULT flag
         // respond to implicit intents
-        PackageManager pm = getActivity().getPackageManager();
+        // NOTE: it's a little easier to check it the other way around: pickContact.resolveActivity(pm)
         if (pm.resolveActivity(pickContact, pm.MATCH_DEFAULT_ONLY) == null) {
             mSuspectButton.setEnabled(false);
         } else {
@@ -186,6 +197,24 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         });
         mCallButton.setEnabled(mCrime.getSuspectKey() != null);
 
+        mPhotoButton = (ImageButton) v.findViewById(R.id.crime_camera);
+        mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
+        updatePhotoView();
+
+        final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        boolean canTakePhoto = mPhotoFile != null && captureImage.resolveActivity(pm) != null;
+        mPhotoButton.setEnabled(canTakePhoto);
+        if (canTakePhoto) {
+            Uri uri = Uri.fromFile(mPhotoFile);
+            captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+        }
+
+        mPhotoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivityForResult(captureImage, REQUEST_PHOTO);
+            }
+        });
         return v;
     }
 
@@ -222,6 +251,8 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             Bundle args = new Bundle();
             args.putString("contactUri", contactUri.toString());
             getLoaderManager().restartLoader(LOADER_QUERY_CONTACT, args, this);
+        } else if (requestCode == REQUEST_PHOTO) {
+            updatePhotoView();
         }
     }
 
@@ -259,6 +290,15 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         String report = getString(R.string.crime_report, mCrime.getTitle(), dateString, solvedString, suspect);
 
         return report;
+    }
+
+    private void updatePhotoView() {
+        if (mPhotoFile == null || !mPhotoFile.exists()) {
+            mPhotoView.setImageDrawable(null);
+        } else {
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
+            mPhotoView.setImageBitmap(bitmap);
+        }
     }
 
     @Override
