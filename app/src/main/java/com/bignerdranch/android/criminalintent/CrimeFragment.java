@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
@@ -26,6 +27,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -54,6 +56,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
     private static final String DIALOG_REMOVE = "DialogRemove";
+    private static final String DIALOG_IMAGE = "DialogImage";
 
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
@@ -199,7 +202,29 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
 
         mPhotoButton = (ImageButton) v.findViewById(R.id.crime_camera);
         mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
-        updatePhotoView();
+
+        mPhotoView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+
+                // Now we could reliably get its dimensions:
+                // int w = mPhotoView.getWidth();
+                // int h = mPhotoView.getHeight();
+                updatePhotoView();
+
+                // Once data has been obtained, this listener is no longer needed, so remove it...
+                mPhotoView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+            }
+        });
+
+        mPhotoView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+            FragmentManager fm = getActivity().getSupportFragmentManager();
+            ImageViewFragment dialog = ImageViewFragment.newInstance(mCrime.getId());
+            dialog.show(fm, DIALOG_IMAGE);
+            }
+        });
 
         final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         boolean canTakePhoto = mPhotoFile != null && captureImage.resolveActivity(pm) != null;
@@ -296,7 +321,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         if (mPhotoFile == null || !mPhotoFile.exists()) {
             mPhotoView.setImageDrawable(null);
         } else {
-            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), mPhotoView);
             mPhotoView.setImageBitmap(bitmap);
         }
     }
