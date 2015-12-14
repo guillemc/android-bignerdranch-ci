@@ -1,6 +1,7 @@
 package com.bignerdranch.android.criminalintent;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -65,6 +66,8 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
     private static final int LOADER_QUERY_CONTACT = 100;
     private static final int LOADER_QUERY_PHONE = 101;
 
+    private Callbacks mCallbacks;
+
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
         args.putSerializable(ARG_CRIME_ID, crimeId);
@@ -72,6 +75,23 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         CrimeFragment fragment = new CrimeFragment();
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public interface Callbacks {
+        void onCrimeUpdated(Crime crime);
+        void onCrimeDeleted(Crime crime);
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        mCallbacks = (Callbacks) context;
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallbacks = null;
     }
 
     @Override
@@ -108,6 +128,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 mCrime.setSolved(isChecked);
+                updateCrime();
             }
         });
 
@@ -122,6 +143,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 mCrime.setTitle(s.toString());
+                updateCrime();
             }
 
             @Override
@@ -270,6 +292,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             Date date = (Date) data.getSerializableExtra(DatePickerFragment.EXTRA_DATE);
             mCrime.setDate(date);
             updateDate();
+            updateCrime();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
             Log.d(TAG, "REQUEST_CONTACT activity result: " + contactUri.toString());
@@ -299,7 +322,11 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             public void onClick(DialogInterface dialog, int which) {
                 Activity activity = getActivity();
                 CrimeLab.get(activity).removeCrime(mCrime);
-                activity.finish();
+                if (activity.findViewById(R.id.detail_fragment_container) == null) {
+                    activity.finish();
+                } else {
+                    mCallbacks.onCrimeDeleted(mCrime);
+                }
             }
         });
         dialog.show(fm, DIALOG_REMOVE);
@@ -324,6 +351,11 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
             Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), mPhotoView);
             mPhotoView.setImageBitmap(bitmap);
         }
+    }
+
+    private void updateCrime() {
+        CrimeLab.get(getActivity()).updateCrime(mCrime);
+        mCallbacks.onCrimeUpdated(mCrime);
     }
 
     @Override
@@ -373,6 +405,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         switch (loader.getId()) {
             case LOADER_QUERY_CONTACT:
                 setContactData(c);
+                updateCrime();
                 break;
             case LOADER_QUERY_PHONE:
                 String phone = getPhoneFromCursor(c);

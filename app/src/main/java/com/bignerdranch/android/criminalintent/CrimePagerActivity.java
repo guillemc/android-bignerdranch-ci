@@ -13,7 +13,9 @@ import android.support.v7.app.AppCompatActivity;
 import java.util.List;
 import java.util.UUID;
 
-public class CrimePagerActivity extends AppCompatActivity {
+public class CrimePagerActivity extends AppCompatActivity
+        implements CrimeFragment.Callbacks {
+
     private ViewPager mViewPager;
     private List<Crime> mCrimes;
 
@@ -56,5 +58,16 @@ public class CrimePagerActivity extends AppCompatActivity {
         Intent intent = new Intent(packageContext, CrimePagerActivity.class);
         intent.putExtra(EXTRA_CRIME_ID, crimeID);
         return intent;
+    }
+
+    @Override
+    public void onCrimeUpdated(Crime crime) {
+        // all activities that host CrimeFragment must implement its Callbacks interface
+        // (in this case the viewPager doesn't need to do anything when a crime is updated)
+    }
+
+    @Override
+    public void onCrimeDeleted(Crime crime) {
+        //
     }
 }
