@@ -37,6 +37,7 @@ public class CrimeListFragment extends Fragment {
 
     public interface Callbacks {
         void onCrimeSelected(Crime crime);
+        void onCrimeStatusChanged(Crime crime);
     }
 
     @Override
@@ -187,6 +188,7 @@ public class CrimeListFragment extends Fragment {
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                     mCrime.setSolved(isChecked);
                     CrimeLab.get(getActivity()).updateCrime(mCrime);
+                    mCallbacks.onCrimeStatusChanged(mCrime);
                 }
             });
         }

@@ -23,10 +23,15 @@ public class CrimeListActivity extends SingleFragmentActivity
             Intent intent = CrimePagerActivity.newIntent(this, crime.getId());
             startActivity(intent);
         } else { // two panes
-            Fragment newDetail = CrimeFragment.newInstance(crime.getId());
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.detail_fragment_container, newDetail)
-                    .commit();
+            updateDetailFragment(crime);
+        }
+    }
+
+    @Override
+    public void onCrimeStatusChanged(Crime crime) {
+        CrimeFragment crimeFragment = (CrimeFragment) getSupportFragmentManager().findFragmentById(R.id.detail_fragment_container);
+        if (crimeFragment != null && crimeFragment.getCrimeId().equals(crime.getId())) {
+            crimeFragment.updateCheckBox(crime.isSolved());
         }
     }
 
@@ -38,16 +43,27 @@ public class CrimeListActivity extends SingleFragmentActivity
     @Override
     public void onCrimeDeleted(Crime crime) {
         updateListFragment();
-        FragmentManager fm = getSupportFragmentManager();
-        fm.beginTransaction()
-                .remove(fm.findFragmentById(R.id.detail_fragment_container))
-                .commit();
+        removeDetailFragment();
     }
 
     private void updateListFragment() {
         CrimeListFragment listFragment = (CrimeListFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.fragment_container);
         listFragment.updateUI();
+    }
+
+    private void updateDetailFragment(Crime crime) {
+        Fragment newDetail = CrimeFragment.newInstance(crime.getId());
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.detail_fragment_container, newDetail)
+                .commit();
+    }
+
+    private void removeDetailFragment() {
+        FragmentManager fm = getSupportFragmentManager();
+        fm.beginTransaction()
+                .remove(fm.findFragmentById(R.id.detail_fragment_container))
+                .commit();
     }
 
 

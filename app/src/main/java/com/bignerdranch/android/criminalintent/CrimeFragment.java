@@ -123,7 +123,7 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
         });
 
         mSolvedCheckBox = (CheckBox) v.findViewById(R.id.crime_solved);
-        mSolvedCheckBox.setChecked(mCrime.isSolved());
+        updateCheckBox(mCrime.isSolved());
         mSolvedCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -356,6 +356,14 @@ public class CrimeFragment extends Fragment implements LoaderManager.LoaderCallb
     private void updateCrime() {
         CrimeLab.get(getActivity()).updateCrime(mCrime);
         mCallbacks.onCrimeUpdated(mCrime);
+    }
+
+    public void updateCheckBox(Boolean checked) {
+        mSolvedCheckBox.setChecked(checked);
+    }
+
+    public UUID getCrimeId() {
+        return mCrime.getId();
     }
 
     @Override
